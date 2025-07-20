@@ -1,0 +1,58 @@
+# Copyright (C) 2025 Daniel Mueller <deso@posteo.net>
+# SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
+name: Test
+
+on:
+  pull_request:
+  push:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Build and test [${{ matrix.rust }}, ${{ matrix.profile }}]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable]
+        profile: [dev, release]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+    - name: Build & test ${{ matrix.profile }}
+      run: |
+        cargo build --workspace --all-targets --profile=${{ matrix.profile }}
+        cargo test --workspace --all-targets --profile=${{ matrix.profile }}
+  clippy:
+    name: Lint with clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --workspace --no-deps --all-targets --all-features -- -A unknown_lints -D warnings
+  rustfmt:
+    name: Check code formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - run: cargo +nightly fmt --all -- --check
+  rustdoc:
+    name: Generate documentation
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: '--cfg docsrs -D warnings -D rustdoc::broken_intra_doc_links'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo doc --workspace --no-deps --document-private-items
