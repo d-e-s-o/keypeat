@@ -1,6 +1,27 @@
 [package]
 name = "keypeat"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0 OR MIT"
+homepage = "https://github.com/d-e-s-o/keypeat"
+repository = "https://github.com/d-e-s-o/keypeat.git"
+readme = "README.md"
+categories = [
+  "accessibility",
+  "algorithms",
+  "api-bindings",
+  "command-line-utilities",
+  "gui"
+]
+keywords = [
+  "keys",
+  "input",
+  "repeat",
+  "winit",
+  "notification",
+]
+description = """
+Generic, std-only key repetition handling for Rust.
+"""
 
 [dependencies]
