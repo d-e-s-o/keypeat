@@ -24,6 +24,9 @@ description = """
 Generic, std-only key repetition handling for Rust.
 """
 
+[dev-dependencies]
+libc = "0.2"
+winit = "0.30"
 
 [lints.rust]
 deprecated-safe = "warn"
