@@ -6,6 +6,7 @@ keypeat
 =======
 
 - [Documentation][docs-rs]
+- [Changelog](CHANGELOG.md)
 
 Generic, `std`-only key repetition handling for Rust.
 

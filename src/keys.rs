@@ -186,12 +186,23 @@ impl KeyState {
 /// supported.
 #[derive(Debug)]
 pub enum KeyRepeat {
+  /// Auto-key-repeat is enabled.
   Enabled,
+  /// Auto-key-repeat is disabled.
   Disabled,
 }
 
 
-/// A type helping with key press repetitions.
+/// A type tracking key states and implementing key auto-repeats at a
+/// given interval after an initial "timeout".
+///
+/// In general, interaction with this object follows the pattern of
+/// feeding key presses and releases as delivered by "the system" via
+/// the [`on_key_press`][Keys::on_key_press] and
+/// [`on_key_release`][Keys::on_key_release] methods. After that you
+/// would [`tick`][Keys::tick] the object, which will invoke a handler
+/// function for all the key presses and repeats accumulated since the
+/// last time it was invoked.
 #[derive(Debug)]
 pub struct Keys<K> {
   /// The "timeout" after the initial key press after which the first
@@ -211,6 +222,9 @@ impl<K> Keys<K>
 where
   K: Copy + Eq + Hash,
 {
+  /// Create a new [`Keys`] object using `timeout` as the initial
+  /// timeout after which pressed keys transition into auto-repeat mode
+  /// at interval `interval`.
   pub fn new(timeout: Duration, interval: Duration) -> Self {
     Self {
       timeout,
@@ -250,16 +264,28 @@ where
     }
   }
 
-  /// This method is to be invoked on every key press.
+  /// This method is to be invoked on every key press received.
   pub fn on_key_press(&mut self, now: Instant, key: K) {
     self.on_key_event(now, key, true)
   }
 
-  /// This method is to be invoked on every key release.
+  /// This method is to be invoked on every key release received.
   pub fn on_key_release(&mut self, now: Instant, key: K) {
     self.on_key_event(now, key, false)
   }
 
+  /// Handle a "tick", i.e., evaluate currently pressed keys based on
+  /// the provided time, invoking `handler` for each overdue repeat
+  /// event.
+  ///
+  /// `handler` can change the key's [`KeyRepeat`] state (key repetition
+  /// is enabled by default).
+  ///
+  /// Furthermore, `handler` may return any kind of state that can be
+  /// bitwise ORed, allowing to communicate an abstract notion of
+  /// "changes triggered" to callers. In addition, the instant at which
+  /// the next "tick" is likely to occur (and, hence, this function
+  /// should be invoked) is returned as well (if any).
   // TODO: It could be beneficial to coalesce nearby ticks into a single
   //       one, to reduce the number of event loop wake ups.
   pub fn tick<F, C>(&mut self, now: Instant, mut handler: F) -> (C, Option<Instant>)
@@ -315,7 +341,7 @@ where
     (change, next_tick)
   }
 
-  /// Clear all pressed keys.
+  /// Clear all pressed keys, i.e., marking them all as released.
   #[inline]
   pub fn clear(&mut self) {
     self.pressed.clear()
