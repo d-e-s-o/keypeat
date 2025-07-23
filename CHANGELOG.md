@@ -1,5 +1,5 @@
-Unreleased
-----------
+0.1.1
+-----
 - Improved documentation
 - Added runnable example illustrating crate usage
 
