@@ -203,6 +203,11 @@ pub enum KeyRepeat {
 /// would [`tick`][Keys::tick] the object, which will invoke a handler
 /// function for all the key presses and repeats accumulated since the
 /// last time it was invoked.
+///
+/// For a complete and runnable example illustrating usage please refer
+/// to [`winit-phys-events.rs`][winit-phys-events].
+///
+/// [winit-phys-events]: https://github.com/d-e-s-o/keypeat/blob/main/examples/winit-phys-events.rs
 #[derive(Debug)]
 pub struct Keys<K> {
   /// The "timeout" after the initial key press after which the first
