@@ -5,6 +5,7 @@ edition = "2021"
 license = "Apache-2.0 OR MIT"
 homepage = "https://github.com/d-e-s-o/keypeat"
 repository = "https://github.com/d-e-s-o/keypeat.git"
+documentation = "https://docs.rs/keypeat"
 readme = "README.md"
 categories = [
   "accessibility",
