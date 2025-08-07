@@ -7,7 +7,7 @@
 
 use std::env::args_os;
 use std::mem::MaybeUninit;
-use std::process::exit;
+use std::process::ExitCode;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -151,14 +151,14 @@ fn enable_echo(enable: bool) {
 }
 
 
-fn main() {
+fn main() -> ExitCode {
   let (timeout, interval) = match args_os().len() {
     0 | 1 => MED_PRESET,
     2 if args_os().any(|arg| &arg == "--slow") => SLOW_PRESET,
     2 if args_os().any(|arg| &arg == "--fast") => FAST_PRESET,
     _ => {
       eprintln!("encountered unsupported number of program arguments");
-      exit(1)
+      return ExitCode::FAILURE
     },
   };
 
@@ -174,4 +174,5 @@ fn main() {
   let () = enable_echo(false);
   let () = event_loop.run_app(&mut app).unwrap();
   let () = enable_echo(true);
+  ExitCode::SUCCESS
 }
