@@ -1,3 +1,8 @@
+Unreleased
+----------
+- Made `Keys` type generic over the "instant" type to use
+
+
 0.1.1
 -----
 - Improved documentation

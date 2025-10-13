@@ -6,7 +6,10 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::ops::Add;
+use std::ops::AddAssign;
 use std::ops::BitOrAssign;
+use std::ops::Sub;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -15,7 +18,10 @@ use std::time::Instant;
 ///
 /// Compared to using the default `Ord` impl of `Option`, `None` values
 /// are actually strictly "greater" than any `Some`.
-fn min_instant(a: Option<Instant>, b: Option<Instant>) -> Option<Instant> {
+fn min_instant<I>(a: Option<I>, b: Option<I>) -> Option<I>
+where
+  I: Copy + Ord,
+{
   match (a, b) {
     (None, None) => None,
     (Some(_instant), None) => a,
@@ -27,31 +33,34 @@ fn min_instant(a: Option<Instant>, b: Option<Instant>) -> Option<Instant> {
 
 /// The state a single key can be in.
 #[derive(Clone, Copy, Debug)]
-enum KeyState {
+enum KeyState<I> {
   Pressed {
-    pressed_at: Instant,
+    pressed_at: I,
     fire_count: usize,
   },
   Repeated {
-    pressed_at: Instant,
-    next_repeat: Instant,
+    pressed_at: I,
+    next_repeat: I,
     fire_count: usize,
   },
   ReleasePending {
-    pressed_at: Instant,
+    pressed_at: I,
     fire_count: usize,
   },
 }
 
-impl KeyState {
-  fn pressed(pressed_at: Instant) -> Self {
+impl<I> KeyState<I>
+where
+  I: Copy + Ord + Add<Duration, Output = I> + AddAssign<Duration> + Sub<Output = Duration>,
+{
+  fn pressed(pressed_at: I) -> Self {
     Self::Pressed {
       pressed_at,
       fire_count: 0,
     }
   }
 
-  fn on_press(&mut self, now: Instant) {
+  fn on_press(&mut self, now: I) {
     match self {
       Self::Pressed { .. } | Self::Repeated { .. } => {
         // If the key is already pressed we just got an AutoRepeat
@@ -70,7 +79,7 @@ impl KeyState {
     }
   }
 
-  fn on_release(&mut self, now: Instant, timeout: Duration, interval: Duration) {
+  fn on_release(&mut self, now: I, timeout: Duration, interval: Duration) {
     match self {
       Self::Pressed {
         pressed_at,
@@ -97,7 +106,10 @@ impl KeyState {
         next_repeat,
         fire_count,
       } => {
-        let diff = now.saturating_duration_since(*next_repeat);
+        // NB: Use `min` here to ensure that `next_repeat` is not later
+        //     than `now`, because some versions of Rust may panic if
+        //     this precondition is violated.
+        let diff = now - (*next_repeat).min(now);
         // TODO: Use `Duration::div_duration_f64` once stable.
         *fire_count += (diff.as_secs_f64() / interval.as_secs_f64()).trunc() as usize;
         // If `now` is past the next auto repeat, take that into account
@@ -117,7 +129,7 @@ impl KeyState {
     }
   }
 
-  fn next_tick(&self) -> Option<Instant> {
+  fn next_tick(&self) -> Option<I> {
     match self {
       Self::Pressed { pressed_at, .. } => Some(*pressed_at),
       Self::Repeated {
@@ -145,7 +157,7 @@ impl KeyState {
   }
 
   /// # Notes
-  /// This method should only be called once the `Instant` returned by
+  /// This method should only be called once the instant returned by
   /// [`KeyState::next_tick`] has been reached.
   fn tick(&mut self, timeout: Duration, interval: Duration) {
     match self {
@@ -209,7 +221,7 @@ pub enum KeyRepeat {
 ///
 /// [winit-phys-events]: https://github.com/d-e-s-o/keypeat/blob/main/examples/winit-phys-events.rs
 #[derive(Debug)]
-pub struct Keys<K> {
+pub struct Keys<K, I = Instant> {
   /// The "timeout" after the initial key press after which the first
   /// repeat is issued.
   timeout: Duration,
@@ -220,12 +232,13 @@ pub struct Keys<K> {
   ///
   /// The state may be `None` temporarily, in which case it is about to
   /// be removed.
-  pressed: HashMap<K, Option<KeyState>>,
+  pressed: HashMap<K, Option<KeyState<I>>>,
 }
 
-impl<K> Keys<K>
+impl<K, I> Keys<K, I>
 where
   K: Copy + Eq + Hash,
+  I: Copy + Ord + Add<Duration, Output = I> + AddAssign<Duration> + Sub<Output = Duration>,
 {
   /// Create a new [`Keys`] object using `timeout` as the initial
   /// timeout after which pressed keys transition into auto-repeat mode
@@ -238,7 +251,7 @@ where
     }
   }
 
-  fn on_key_event(&mut self, now: Instant, key: K, pressed: bool) {
+  fn on_key_event(&mut self, now: I, key: K, pressed: bool) {
     match pressed {
       false => match self.pressed.entry(key) {
         Entry::Vacant(_vacancy) => {
@@ -270,12 +283,12 @@ where
   }
 
   /// This method is to be invoked on every key press received.
-  pub fn on_key_press(&mut self, now: Instant, key: K) {
+  pub fn on_key_press(&mut self, now: I, key: K) {
     self.on_key_event(now, key, true)
   }
 
   /// This method is to be invoked on every key release received.
-  pub fn on_key_release(&mut self, now: Instant, key: K) {
+  pub fn on_key_release(&mut self, now: I, key: K) {
     self.on_key_event(now, key, false)
   }
 
@@ -293,7 +306,7 @@ where
   /// should be invoked) is returned as well (if any).
   // TODO: It could be beneficial to coalesce nearby ticks into a single
   //       one, to reduce the number of event loop wake ups.
-  pub fn tick<F, C>(&mut self, now: Instant, mut handler: F) -> (C, Option<Instant>)
+  pub fn tick<F, C>(&mut self, now: I, mut handler: F) -> (C, Option<I>)
   where
     F: FnMut(&K, &mut KeyRepeat) -> C,
     C: Default + BitOrAssign,
