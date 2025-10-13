@@ -1,5 +1,5 @@
-Unreleased
-----------
+0.1.2
+-----
 - Made `Keys` type generic over the "instant" type to use
 
 
