@@ -313,26 +313,21 @@ where
   {
     let mut change = C::default();
     let mut next_tick = None;
-    let mut remove = None;
 
-    'next_key: for (key, key_state_opt) in self.pressed.iter_mut() {
+    let () = self.pressed.retain(|key, key_state_opt| {
       if let Some(key_state) = key_state_opt {
         loop {
           if let Some(tick) = key_state.next_tick() {
             if tick > now {
               next_tick = min_instant(next_tick, Some(tick));
-              continue 'next_key
+              break true
             }
 
             let mut repeat = KeyRepeat::Enabled;
             change |= handler(key, &mut repeat);
 
             match repeat {
-              KeyRepeat::Disabled => {
-                *key_state_opt = None;
-                remove = remove.or(Some(*key));
-                continue 'next_key
-              },
+              KeyRepeat::Disabled => break false,
               KeyRepeat::Enabled => {
                 let () = key_state.tick(self.timeout, self.interval);
               },
@@ -340,21 +335,13 @@ where
           } else {
             // If there is no next tick then the key had been released
             // earlier. Make sure to remove the state after we are done.
-            *key_state_opt = None;
-            remove = remove.or(Some(*key));
-            continue 'next_key
+            break false
           }
         }
+      } else {
+        false
       }
-    }
-
-    if let Some(key) = remove {
-      // We only ever remove one key at a time to not have to allocate.
-      // It won't take many invocations of this function to clear all
-      // keys for which the "user" wants to disable auto-repeat, though.
-      let _state = self.pressed.remove(&key);
-      debug_assert!(_state.is_some());
-    }
+    });
 
     (change, next_tick)
   }
