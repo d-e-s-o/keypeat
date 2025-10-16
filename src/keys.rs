@@ -229,10 +229,7 @@ pub struct Keys<K, I = Instant> {
   interval: Duration,
   /// A map from keys that are currently pressed to internally used
   /// key repetition state.
-  ///
-  /// The state may be `None` temporarily, in which case it is about to
-  /// be removed.
-  pressed: HashMap<K, Option<KeyState<I>>>,
+  pressed: HashMap<K, KeyState<I>>,
 }
 
 impl<K, I> Keys<K, I>
@@ -260,23 +257,17 @@ where
           // such a case it is fine to just ignore the release.
         },
         Entry::Occupied(mut occupancy) => {
-          if let Some(ref mut state) = occupancy.get_mut() {
-            let () = state.on_release(now, self.timeout, self.interval);
-          } else {
-            let _state = occupancy.remove();
-          }
+          let state = occupancy.get_mut();
+          let () = state.on_release(now, self.timeout, self.interval);
         },
       },
       true => match self.pressed.entry(key) {
         Entry::Vacant(vacancy) => {
-          let _state = vacancy.insert(Some(KeyState::pressed(now)));
+          let _state = vacancy.insert(KeyState::pressed(now));
         },
         Entry::Occupied(mut occupancy) => {
-          if let Some(ref mut state) = occupancy.get_mut() {
-            let () = state.on_press(now);
-          } else {
-            let _state = occupancy.insert(Some(KeyState::pressed(now)));
-          }
+          let state = occupancy.get_mut();
+          let () = state.on_press(now);
         },
       },
     }
@@ -314,32 +305,26 @@ where
     let mut change = C::default();
     let mut next_tick = None;
 
-    let () = self.pressed.retain(|key, key_state_opt| {
-      if let Some(key_state) = key_state_opt {
-        loop {
-          if let Some(tick) = key_state.next_tick() {
-            if tick > now {
-              next_tick = min_instant(next_tick, Some(tick));
-              break true
-            }
+    let () = self.pressed.retain(|key, key_state| loop {
+      if let Some(tick) = key_state.next_tick() {
+        if tick > now {
+          next_tick = min_instant(next_tick, Some(tick));
+          break true
+        }
 
-            let mut repeat = KeyRepeat::Enabled;
-            change |= handler(key, &mut repeat);
+        let mut repeat = KeyRepeat::Enabled;
+        change |= handler(key, &mut repeat);
 
-            match repeat {
-              KeyRepeat::Disabled => break false,
-              KeyRepeat::Enabled => {
-                let () = key_state.tick(self.timeout, self.interval);
-              },
-            }
-          } else {
-            // If there is no next tick then the key had been released
-            // earlier. Make sure to remove the state after we are done.
-            break false
-          }
+        match repeat {
+          KeyRepeat::Disabled => break false,
+          KeyRepeat::Enabled => {
+            let () = key_state.tick(self.timeout, self.interval);
+          },
         }
       } else {
-        false
+        // If there is no next tick then the key had been released
+        // earlier. Make sure to remove the state after we are done.
+        break false
       }
     });
 
