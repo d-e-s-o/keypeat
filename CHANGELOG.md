@@ -1,5 +1,5 @@
-Unreleased
-----------
+0.1.3
+-----
 - Removed requirement that `K: Copy` from `Keys`
 
 
