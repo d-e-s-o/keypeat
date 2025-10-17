@@ -234,7 +234,7 @@ pub struct Keys<K, I = Instant> {
 
 impl<K, I> Keys<K, I>
 where
-  K: Copy + Eq + Hash,
+  K: Eq + Hash,
   I: Copy + Ord + Add<Duration, Output = I> + AddAssign<Duration> + Sub<Output = Duration>,
 {
   /// Create a new [`Keys`] object using `timeout` as the initial
